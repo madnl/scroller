@@ -1,12 +1,27 @@
 import * as React from 'react';
+import { Item } from './types';
 
-type Props = { offset: number; children: React.ReactNode };
+export interface CellRef {
+  measureHeight(): number;
+}
 
-export default class Cell extends React.Component<Props> {
+type Props<TItem> = {
+  item: TItem;
+  offset: number;
+  children: React.ReactNode;
+  setRef: (key: string, ref: CellRef | void) => void;
+};
+
+export default class Cell<TItem extends Item> extends React.Component<
+  Props<TItem>
+> {
+  private element: HTMLElement | void = undefined;
+
   render() {
     const { offset, children } = this.props;
     return (
       <div
+        ref={this.setRef}
         style={{
           position: 'absolute',
           transform: `translateY(${offset}px)`,
@@ -17,4 +32,16 @@ export default class Cell extends React.Component<Props> {
       </div>
     );
   }
+
+  private setRef = (element: HTMLElement | null) => {
+    const cellRef: CellRef | void = element
+      ? {
+          measureHeight() {
+            return element.offsetHeight;
+          }
+        }
+      : undefined;
+    const { setRef, item } = this.props;
+    setRef(item.key, cellRef);
+  };
 }

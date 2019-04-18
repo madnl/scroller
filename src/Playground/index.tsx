@@ -8,7 +8,7 @@ type Props = {
 };
 
 type Item = {
-  id: string;
+  key: string;
   label: string;
   color: string;
 };
@@ -44,25 +44,28 @@ export default function Playground({ itemCount }: Props) {
     [items]
   );
 
-  const render = React.useCallback(
-    (item: Item) => (
-      <Box
-        context={item}
-        onInsertAbove={handleInsertAbove}
-        onInsertBelow={handleInsertBelow}
-        label={item.label}
-        color={item.color}
-      />
-    ),
-    [handleInsertAbove, handleInsertBelow]
+  const list = React.useMemo(
+    () =>
+      items.map(item => ({
+        key: item.key,
+        node: (
+          <Box
+            context={item}
+            onInsertAbove={handleInsertAbove}
+            onInsertBelow={handleInsertBelow}
+            label={item.label}
+            color={item.color}
+          />
+        )
+      })),
+    [items, handleInsertAbove, handleInsertBelow]
   );
-  const keyProvider = React.useCallback((item: Item) => item.id, []);
 
-  return <Scroller keyProvider={keyProvider} items={items} render={render} />;
+  return <Scroller itemHeightEstimate={100} list={list} />;
 }
 
 const createItem = (index: number): Item => ({
-  id: String(index),
+  key: String(index),
   label: String(index),
   color: palette[index % palette.length]
 });

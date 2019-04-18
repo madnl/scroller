@@ -22,3 +22,23 @@ export const insertAfterIndex = <T>(
   index: number,
   item: T
 ): ReadonlyArray<T> => insertBeforeIndex(items, index + 1, item);
+
+export const minBy = <T>(
+  list: ReadonlyArray<T>,
+  fn: (item: T) => number
+): T | void => {
+  if (list.length === 0) {
+    return undefined;
+  }
+  let best = list[0];
+  let minValue = fn(best);
+  for (let i = 1; i < list.length; i++) {
+    const item = list[i];
+    const value = fn(item);
+    if (value < minValue) {
+      minValue = value;
+      best = item;
+    }
+  }
+  return best;
+};
