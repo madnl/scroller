@@ -23,11 +23,9 @@ export default class Scroller extends React.PureComponent<Props, State> {
 
   constructor(props: Props) {
     super(props);
-    const initialRendition =
-      props.list.length > 0 ? [{ item: props.list[0], offset: 0 }] : [];
     const initialRunwayHeight = 1000;
     this.state = {
-      rendition: initialRendition,
+      rendition: [],
       runwayHeight: initialRunwayHeight
     };
     this.heightCache = new HeightCache(props.itemHeightEstimate);
@@ -40,7 +38,13 @@ export default class Scroller extends React.PureComponent<Props, State> {
     return (
       <Runway setRef={this.setRunway} height={runwayHeight}>
         {rendition.map(({ item, offset }) => (
-          <Cell setRef={this.setRef} offset={offset} item={item} key={item.key}>
+          <Cell
+            onLayoutChange={this.handleItemHeightChange}
+            setRef={this.setRef}
+            offset={offset}
+            item={item}
+            key={item.key}
+          >
             {item.node}
           </Cell>
         ))}
@@ -56,6 +60,16 @@ export default class Scroller extends React.PureComponent<Props, State> {
     this.postRenderProcessing();
   }
 
+  private handleItemHeightChange = (key: string) => {
+    scheduleFrame(() => {
+      const cell = this.cells.get(key);
+      if (cell) {
+        this.heightCache.update(key, cell.measureHeight());
+        this.refreshRendition();
+      }
+    });
+  };
+
   private postRenderProcessing() {
     scheduleFrame(() => {
       this.recordNewHeights();
@@ -65,11 +79,9 @@ export default class Scroller extends React.PureComponent<Props, State> {
 
   private recordNewHeights() {
     this.state.rendition.forEach(({ item }) => {
-      if (!this.heightCache.hasRecord(item.key)) {
-        const cell = this.cells.get(item.key);
-        if (cell) {
-          this.heightCache.update(item.key, cell.measureHeight());
-        }
+      const cell = this.cells.get(item.key);
+      if (cell) {
+        this.heightCache.update(item.key, cell.measureHeight());
       }
     });
   }
@@ -77,13 +89,6 @@ export default class Scroller extends React.PureComponent<Props, State> {
   private setRunway = (runway: RunwayRef | void) => {
     this.runway = runway;
   };
-
-  private scheduleRenditionRecalculation() {
-    // TODO: prevent double scheduling
-    window.requestAnimationFrame(() => {
-      this.refreshRendition();
-    });
-  }
 
   private refreshRendition() {
     if (!this.runway) {
