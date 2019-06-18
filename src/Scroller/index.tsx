@@ -5,10 +5,12 @@ import { Item } from './types';
 import recalculateRendition from './recalculateRendition';
 import VerticalSegment from './VerticalSegment';
 import HeightCache from './HeightCache';
+import Viewport, { EventSubscription } from './Viewport';
 
 type Props = {
   itemHeightEstimate: number;
   list: ReadonlyArray<Item>;
+  viewport: Viewport;
 };
 
 type State = {
@@ -20,6 +22,8 @@ export default class Scroller extends React.PureComponent<Props, State> {
   private readonly heightCache: HeightCache;
   private readonly cells: Map<string, CellRef>;
   private runway: RunwayRef | void = undefined;
+  private readonly viewport: Viewport;
+  private scrollSubscription: EventSubscription | void = undefined;
 
   constructor(props: Props) {
     super(props);
@@ -30,6 +34,7 @@ export default class Scroller extends React.PureComponent<Props, State> {
     };
     this.heightCache = new HeightCache(props.itemHeightEstimate);
     this.cells = new Map();
+    this.viewport = props.viewport;
   }
 
   render() {
@@ -53,12 +58,24 @@ export default class Scroller extends React.PureComponent<Props, State> {
   }
 
   componentDidMount() {
+    this.scrollSubscription = this.viewport.listenOnScroll(this._handleScroll);
     this.postRenderProcessing();
   }
 
   componentDidUpdate() {
+    if (this.props.viewport !== this.viewport) {
+      console.warn('Scroller does not support changing viewports');
+    }
     this.postRenderProcessing();
   }
+
+  componentWillUnmount() {
+    if (this.scrollSubscription) {
+      this.scrollSubscription.stop();
+    }
+  }
+
+  _handleScroll = () => {};
 
   private handleItemHeightChange = (key: string) => {
     scheduleFrame(() => {

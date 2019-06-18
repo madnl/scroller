@@ -2,6 +2,7 @@ import * as React from 'react';
 import Scroller from '../Scroller';
 import Box from './Box';
 import { repeat, insertBeforeIndex, insertAfterIndex } from '../util';
+import Viewport from '../Scroller/Viewport';
 
 type Props = {
   itemCount: number;
@@ -61,7 +62,9 @@ export default function Playground({ itemCount }: Props) {
     [items, handleInsertAbove, handleInsertBelow]
   );
 
-  return <Scroller itemHeightEstimate={100} list={list} />;
+  const viewport = React.useMemo(() => Viewport.forWindow(), []);
+
+  return <Scroller viewport={viewport} itemHeightEstimate={100} list={list} />;
 }
 
 const createItem = (index: number): Item => ({
