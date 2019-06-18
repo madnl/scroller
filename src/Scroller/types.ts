@@ -1,5 +1,7 @@
+export type ItemKey = string;
+
 export interface Item {
-  key: string;
+  key: ItemKey;
   node: React.ReactNode;
 }
 

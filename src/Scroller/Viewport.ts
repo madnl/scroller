@@ -1,6 +1,10 @@
+import VerticalSegment from './VerticalSegment';
+
 export interface ViewportContainer {
   addScrollListener(callback: () => void): void;
   removeScrollListener(callback: () => void): void;
+  clientTop(): number;
+  height(): number;
 }
 
 export interface EventSubscription {
@@ -18,6 +22,14 @@ export default class Viewport {
 
       removeScrollListener(callback) {
         wnd.removeEventListener('scroll', callback);
+      },
+
+      clientTop() {
+        return 0;
+      },
+
+      height() {
+        return wnd.innerHeight;
       }
     });
   }
@@ -33,5 +45,12 @@ export default class Viewport {
         this.container.removeScrollListener(listener);
       }
     };
+  }
+
+  segment(): VerticalSegment {
+    return new VerticalSegment(
+      this.container.clientTop(),
+      this.container.height()
+    );
   }
 }

@@ -1,11 +1,12 @@
 import * as React from 'react';
 import Runway, { RunwayRef } from './Runway';
 import Cell, { CellRef } from './Cell';
-import { Item } from './types';
+import { Item, ItemKey } from './types';
 import recalculateRendition from './recalculateRendition';
 import VerticalSegment from './VerticalSegment';
 import HeightCache from './HeightCache';
 import Viewport, { EventSubscription } from './Viewport';
+import WorkQueue, { Priority, Workload } from './WorkQueue';
 
 type Props = {
   itemHeightEstimate: number;
@@ -23,7 +24,10 @@ export default class Scroller extends React.PureComponent<Props, State> {
   private readonly cells: Map<string, CellRef>;
   private runway: RunwayRef | void = undefined;
   private readonly viewport: Viewport;
+  private viewportSegment: VerticalSegment | void = undefined;
+  private runwaySegment: VerticalSegment | void = undefined;
   private scrollSubscription: EventSubscription | void = undefined;
+  private readonly workQueue: WorkQueue;
 
   constructor(props: Props) {
     super(props);
@@ -35,6 +39,11 @@ export default class Scroller extends React.PureComponent<Props, State> {
     this.heightCache = new HeightCache(props.itemHeightEstimate);
     this.cells = new Map();
     this.viewport = props.viewport;
+    this.workQueue = new WorkQueue({
+      update: workload => this.updateCycle(workload),
+      immediateScheduler: window.requestAnimationFrame,
+      lazyScheduler: window.requestAnimationFrame
+    });
   }
 
   render() {
@@ -58,7 +67,9 @@ export default class Scroller extends React.PureComponent<Props, State> {
   }
 
   componentDidMount() {
-    this.scrollSubscription = this.viewport.listenOnScroll(this.handleScroll);
+    this.scrollSubscription = this.viewport.listenOnScroll(() =>
+      this.handleScroll()
+    );
     this.postRenderProcessing();
   }
 
@@ -75,7 +86,55 @@ export default class Scroller extends React.PureComponent<Props, State> {
     }
   }
 
-  private handleScroll = () => {};
+  private updateCycle(workload: Workload) {
+    let heightInfoUpdated = false;
+    let previousViewportSegment = this.viewportSegment;
+    if (!previousViewportSegment || workload.sampleViewportSize) {
+      this.viewportSegment = this.viewport.segment();
+    }
+    const previousRunwaySegment = this.runwaySegment;
+    if (
+      this.runway &&
+      (this.viewportSegment !== previousViewportSegment ||
+        workload.sampleScrollOffset ||
+        !this.runwaySegment)
+    ) {
+      this.runwaySegment = this.runway.measureSegment();
+    }
+    const previousRelativeViewportSegment =
+      previousRunwaySegment &&
+      previousViewportSegment &&
+      viewportSegmentRelativeTo(previousRunwaySegment, previousViewportSegment);
+    const relativeViewportSegment =
+      this.runwaySegment &&
+      this.viewportSegment &&
+      viewportSegmentRelativeTo(this.runwaySegment, this.viewportSegment);
+    if (relativeViewportSegment && workload.measureNewItems) {
+      this.measureItems(workload.remeasureItems);
+      heightInfoUpdated = true; // TODO: verify
+    }
+    if (
+      relativeViewportSegment &&
+      (workload.recalculateRendition ||
+        heightInfoUpdated ||
+        !previousRelativeViewportSegment ||
+        !relativeViewportSegment.isEqualTo(previousRelativeViewportSegment))
+    ) {
+      this.refreshRendition();
+    }
+    // TODO: should also include criticality check
+    if (workload.normalize) {
+      this.normalize();
+    }
+  }
+
+  private normalize() {
+    // TODO
+  }
+
+  private handleScroll() {
+    this.workQueue.sampleScrollOffset('immediate');
+  }
 
   private handleItemHeightChange = (key: string) => {
     scheduleFrame(() => {
@@ -88,16 +147,16 @@ export default class Scroller extends React.PureComponent<Props, State> {
   };
 
   private postRenderProcessing() {
-    scheduleFrame(() => {
-      this.recordNewHeights();
-      this.refreshRendition();
-    });
+    this.workQueue.measureNewItems('immediate');
   }
 
-  private recordNewHeights() {
+  private measureItems(remeasure: ReadonlySet<ItemKey>) {
     this.state.rendition.forEach(({ item }) => {
       const cell = this.cells.get(item.key);
-      if (cell) {
+      if (
+        cell &&
+        (remeasure.has(item.key) || !this.heightCache.hasRecord(item.key))
+      ) {
         this.heightCache.update(item.key, cell.measureHeight());
       }
     });
@@ -129,6 +188,11 @@ export default class Scroller extends React.PureComponent<Props, State> {
     }
   };
 }
+
+const viewportSegmentRelativeTo = (
+  runwaySegment: VerticalSegment,
+  viewportSegment: VerticalSegment
+): VerticalSegment => viewportSegment.translateBy(-runwaySegment.top);
 
 const scheduleFrame = (callback: () => void): void => {
   // TODO: prevent double scheduling

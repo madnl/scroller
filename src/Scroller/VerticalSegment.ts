@@ -23,6 +23,10 @@ export default class VerticalSegment {
     );
   }
 
+  isEqualTo(another: VerticalSegment): boolean {
+    return this.top === another.top && this.height === another.height;
+  }
+
   contains(coordinate: number) {
     return this.top <= coordinate && coordinate < this.bottom;
   }
