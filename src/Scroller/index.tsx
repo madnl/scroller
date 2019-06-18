@@ -58,7 +58,7 @@ export default class Scroller extends React.PureComponent<Props, State> {
   }
 
   componentDidMount() {
-    this.scrollSubscription = this.viewport.listenOnScroll(this._handleScroll);
+    this.scrollSubscription = this.viewport.listenOnScroll(this.handleScroll);
     this.postRenderProcessing();
   }
 
@@ -75,7 +75,7 @@ export default class Scroller extends React.PureComponent<Props, State> {
     }
   }
 
-  _handleScroll = () => {};
+  private handleScroll = () => {};
 
   private handleItemHeightChange = (key: string) => {
     scheduleFrame(() => {
